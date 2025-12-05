@@ -17,13 +17,82 @@ We utilized the Unsloth library to optimize training on limited hardware (Google
 In the first phase, we focused on establishing a working pipeline. We selected a lightweight model to ensure it could be trained within the free GPU time limits and run efficiently on a CPU-based inference server.
 
 ### Pipeline Steps:
-1.  **Data Preparation:** We used the FineTome-100k dataset, which provides high-quality instruction-response pairs.
-2.  **Fine-Tuning:** We used QLoRA (4-bit Quantized LoRA) to fine-tune the `Llama-3.2-1B-Instruct` model. This allowed us to update the model weights efficiently without exceeding VRAM limits.
-3.  **Export:** The trained model was merged and converted to GGUF format (`q4_k_m` quantization) to enable CPU inference.
-4.  **Deployment:** We built a Gradio chat interface hosted on Hugging Face Spaces.
+### Step 1: Environment & Dependencies
+We leverage `unsloth` for its optimized kernels which allow for 2x faster training and 60% less memory usage compared to standard HF Transformers.
+
+```python
+%%capture
+!pip install unsloth
+# Installs the nightly version of Unsloth for Llama-3.2 support
+!pip uninstall unsloth -y && pip install --upgrade --no-cache-dir --no-deps git+[https://github.com/unslothai/unsloth.git@nightly](https://github.com/unslothai/unsloth.git@nightly) git+[https://github.com/unslothai/unsloth-zoo.git](https://github.com/unslothai/unsloth-zoo.git)
+```
+
+### Step 2: Model Initialization (Architecture Selection)
+For our improved pipeline (Task 2), we specifically selected the **Llama-3.2-3B-Instruct** model instead of the 1B baseline. We load it in 4-bit quantization to ensure it fits within the 16GB VRAM limit of Google Colab's T4 GPU.
+
+```python
+from unsloth import FastLanguageModel
+import torch
+
+max_seq_length = 1024 
+dtype = None 
+load_in_4bit = True 
+
+# Task 2 Improvement: Loading the 3B parameter model for better reasoning capabilities
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = "unsloth/Llama-3.2-3B-Instruct",
+    max_seq_length = max_seq_length,
+    dtype = dtype,
+    load_in_4bit = load_in_4bit,
+)
+```
+
+### Step 3: PEFT/LoRA Adapter Configuration
+This is the core of our fine-tuning strategy. To improve model performance (Task 2), we configured the Low-Rank Adaptation (LoRA) with a higher rank (`r=16`) and alpha (`alpha=32`) to increase the model's capacity for learning new instructions.
+
+```python
+model = FastLanguageModel.get_peft_model(
+    model,
+    r = 16, # Task 2 Improvement: Increased from standard 8 to 16
+    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                      "gate_proj", "up_proj", "down_proj"],
+    lora_alpha = 32, # Task 2 Improvement: Scaled alpha (2x rank) for stable updates
+    lora_dropout = 0, 
+    bias = "none",   
+    use_gradient_checkpointing = "unsloth", 
+    random_state = 3407,
+)
+```
+
+### Step 4: Data Processing
+We used the `FineTome-100k` dataset, a high-quality instruction-following dataset. We also utilized `standardize_sharegpt` to ensure the data format aligns with Llama-3's chat template.
+
+```python
+from datasets import load_dataset
+from unsloth.chat_templates import get_chat_template, standardize_sharegpt
+
+tokenizer = get_chat_template(tokenizer, chat_template = "llama-3.1")
+
+def formatting_prompts_func(examples):
+    convos = examples["conversations"]
+    texts = [tokenizer.apply_chat_template(convo, tokenize = False, add_generation_prompt = False) for convo in convos]
+    return { "text" : texts }
+
+dataset = load_dataset("mlabonne/FineTome-100k", split = "train")
+dataset = standardize_sharegpt(dataset)
+dataset = dataset.map(formatting_prompts_func, batched = True)
+```
+
+### Step 5: Training & Export
+The model was trained using the `SFTTrainer` and finally exported to **GGUF format (q4_k_m)**. This specific quantization format is crucial for running the model efficiently on the CPU-only hardware available in Hugging Face Spaces.
+
+```python
+# Exporting to GGUF for CPU Inference
+model.save_pretrained_gguf("model", tokenizer, quantization_method = "q4_k_m")
+```
 
 ### Live Demo
-**Try our Chatbot here:** 
+**Try our Chatbot here:**  这里加展示链接
 
 ---
 
@@ -57,7 +126,7 @@ After training both models, we conducted a side-by-side comparison on Hugging Fa
 * **Observation:** The 3B Improved model demonstrates superior instruction-following capabilities.
 * **Example Case:** When asked to "Explain the concept of recursion to a 5-year-old," the 3B model provided a more coherent analogy compared to the 1B model.
 
-*(Place two screenshots here later: one showing the 1B response and one showing the 3B response)*
+*加截图*
 
 ### 3. Conclusion
 
@@ -76,8 +145,3 @@ To replicate our training process:
 3.  Select the desired configuration (1B or 3B model).
 4.  Run the training loop and export to GGUF.
 
-## Acknowledgements
-
-* **Course:** ID2223 at KTH Royal Institute of Technology.
-* **Library:** Unsloth AI for making fine-tuning accessible on free GPUs.
-* **Dataset:** Maxime Labonne's FineTome dataset.
