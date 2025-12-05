@@ -6,9 +6,9 @@
 
 ## Project Overview
 
-This repository contains our solution for Lab 2. The goal of this project was to construct a complete LLM pipeline: starting from fine-tuning a pre-trained foundation model on a specific instruction dataset, to deploying a scalable, serverless user interface (UI) for inference.
+This repository contains our solution for Lab 2. The goal of this project was to construct a complete LLM pipeline: starting from fine-tuning a pre-trained foundation model on a specific instruction dataset, to deploying a scalable, serverless user interface (UI) for inference. And also try to think how to improve the model from the initial version.
 
-We utilized the Unsloth library to optimize training on limited hardware (Google Colab T4 GPU) and deployed the final model on Hugging Face Spaces using CPU inference.
+We utilized the Unsloth library to optimize training on limited hardware (Google Colab T4 GPU). After running out of the free usage of Colab, we rented a GPU to train the model. And we deployed the final model on Hugging Face Spaces using CPU inference.
 
 ---
 
@@ -91,7 +91,7 @@ The model was trained using the `SFTTrainer` and finally exported to **GGUF form
 model.save_pretrained_gguf("model", tokenizer, quantization_method = "q4_k_m")
 ```
 
-### Live Demo
+### The chatbot
 **Try our Chatbot here:**  这里加展示链接
 
 ---
