@@ -92,7 +92,7 @@ model.save_pretrained_gguf("model", tokenizer, quantization_method = "q4_k_m")
 ```
 
 ### The chatbot
-**Try our Chatbot here:**  [Chatbot](https://huggingface.co/spaces/Yilai228/ID2223_Lab2)
+**Chatbot Link:**  [Chatbot](https://huggingface.co/spaces/Yilai228/ID2223_Lab2)
 
 ---
 
