@@ -84,7 +84,16 @@ dataset = dataset.map(formatting_prompts_func, batched = True)
 ```
 
 ### Step 5: Training & Export
-The model was trained using the `SFTTrainer` and finally exported to **GGUF format (q4_k_m)**. This specific quantization format is crucial for running the model efficiently on the CPU-only hardware available in Hugging Face Spaces.
+The model was trained using the `SFTTrainer`.
+During training on Google Colab, the session can disconnect unexpectedly, which may lead to losing all model progress unless checkpoints are saved frequently. To mitigate this, I added three key parameters to the TrainingArguments:
+```python
+save_strategy = "steps",    # Save checkpoints periodically
+save_steps = 500,           # Save every 500 training steps
+save_total_limit = 3,       # Keep only the 3 most recent checkpoints
+```
+These options ensure that intermediate checkpoints are continuously written to Google Drive, allowing training to be safely resumed from the latest checkpoint if Colab interrupts. This prevented loss of training progress and enabled me to reload the model using the most recent checkpoint before continuing fine-tuning.
+
+The model was finally exported to **GGUF format (q4_k_m)**. This specific quantization format is crucial for running the model efficiently on the CPU-only hardware available in Hugging Face Spaces.
 
 ```python
 # Exporting to GGUF for CPU Inference
